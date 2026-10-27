@@ -126,6 +126,8 @@ function tickTimer(){
   }
   if(ms <= 0){ $('#timer').className = 'timer out'; clearInterval(tick); tick = null; }
 }
+// Every word revealed so far this round. The server sends Battle players only their own team's words.
+const usedWords = r => new Set(r.history.flatMap(a => a.guesses).map(g => norm(g.word)).filter(Boolean));
 function lockedLine(r){ return `${r.players.filter(p => p.submitted).length} of ${r.players.length} locked in`; }
 function showForm(){
   $('#wordForm').hidden = false; $('#after').hidden = true; lastAfter = '';
@@ -151,8 +153,10 @@ function startWriting(r){
   const last = r.attempt > 1 ? r.history.at(-1) : null, c = $('#center');
   if(!last) c.innerHTML = `<div class="prompt pop">Say any word</div><div class="locked" id="lockedN">${lockedLine(r)}</div>`;
   else {
-    const plan = revealPlan(last), words = [...new Set(last.guesses.map(g => norm(g.word)).filter(Boolean))];
-    c.innerHTML = `<div class="cap">Meet in the middle</div><div class="clues">${words.map((w, i) => `<span class="pill ${plan.streak && w === plan.best ? 'ok' : ''}" style="animation-delay:${i * 70}ms">${esc(w)}</span>`).join('')}</div><div class="locked" id="lockedN">${lockedLine(r)}</div>`;
+    const latest = new Set(last.guesses.map(g => norm(g.word)).filter(Boolean));
+    const older = [...usedWords(r)].filter(w => !latest.has(w));
+    const pills = [...[...latest].map(w => [w, '']), ...older.map(w => [w, 'old'])];
+    c.innerHTML = `<div class="cap">Meet in the middle with a new word</div><div class="clues">${pills.map(([w, cls], i) => `<span class="pill ${cls}" style="animation-delay:${i * 70}ms">${esc(w)}</span>`).join('')}</div><div class="locked" id="lockedN">${lockedLine(r)}</div>`;
   }
   $('#wordErr').textContent = '';
   if(r.selfSubmitted) showLocked(r); else showForm();
@@ -179,6 +183,7 @@ async function submit(e){
   const word = $('#word').value.trim().normalize('NFC');
   if(!word || [...word].length > 20 || !WORD_RE.test(word)) return fail('Use one word with letters only.');
   if(!ruleOk(word, r.modifier)) return fail(`That breaks the rule: ${r.modifier.label}.`, true);
+  if(usedWords(r).has(norm(word))) return fail('Someone already said that this round. Try a new word.');
   busy = true;
   try { await api('submit', {word}); SFX.lock(); if(room?.phase === 'writing') showLocked(room, word); }
   catch(err){ fail(err.message); }

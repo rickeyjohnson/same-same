@@ -29,7 +29,7 @@ Or choose **New > Blueprint** and pick the repository; it uses `render.yaml`. Re
 - **2 to 8 players** join a room with a 6-character code. No talking.
 - Everyone secretly types one word at the same time. The first try has no prompt at all.
 - Words reveal one by one in the middle of the table. The most common word goes first, so it feels like a win until someone breaks the streak.
-- If everyone said the same word, the room scores `max(11 - tries, 1)` points. If not, the revealed words become clues and everyone tries again to meet in the middle.
+- If everyone said the same word, the room scores `max(11 - tries, 1)` points. If not, the revealed words become clues and everyone tries again to meet in the middle with a new word.
 - The host taps **Next round** or **Try again** to keep going, or **End game** to finish. If the host goes offline, anyone can tap Next.
 
 ### Host settings (in the lobby)
@@ -44,6 +44,7 @@ Or choose **New > Blueprint** and pick the repository; it uses `render.yaml`. Re
 ### Other rules
 
 - Words are 1 to 20 letters, hyphens allowed. Capital letters don't matter.
+- A word that was already revealed this round can't be said again. In Battle this only counts your own team's words. Every new round starts fresh.
 - Players can tap the lobby board to move their bubble around, and everyone sees it.
 - If you close the tab, reopening the invite link puts you back in the room. The host can remove players who are offline by tapping their dimmed seat.
 

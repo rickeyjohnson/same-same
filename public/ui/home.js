@@ -13,8 +13,8 @@ const DEMO_P = [{avatar:'🦊', color:'orange'}, {avatar:'🐸', color:'grass'},
 const DEMO_X = [18, 50, 82];
 const DEMO = [
   {w:['pizza','moon','cake'], cap:'Everyone says a word at once'},
-  {w:['cheese','night','cheese'], cap:'No match? Use those words as clues'},
-  {w:['cheese','cheese','cheese'], cap:'Everyone says the same word. You score!', win:true}
+  {w:['cheese','night','cheese'], cap:'No match? Find a new word that links them'},
+  {w:['mouse','mouse','mouse'], cap:'Everyone says the same word. You score!', win:true}
 ];
 let demoTimers = [];
 const demoLater = (fn, ms) => demoTimers.push(setTimeout(fn, ms));

@@ -42,6 +42,8 @@ function getRoom(c){ const room=rooms.get(String(c||'').toUpperCase()); if(!room
 function playerAuth(room,b){ const p=room.players.find(p=>p.id===b.playerId&&p.token===b.token); if(!p) error(401,'Your session ended. Join the room again.'); return p; }
 function requireHost(room,p){if(room.hostId!==p.id) error(403,'Only the host can do that.');}
 function getTeamPlayers(room,t){return room.players.filter(p=>p.team===t);}
+// Words already revealed this round can't be said again. In Battle a team only knows its own words.
+function usedWords(room,p){return new Set(room.history.flatMap(a=>a.guesses).filter(g=>g.word&&(room.mode!=='battle'||g.team===p.team)).map(g=>normalize(g.word)));}
 function newPlayer(b,team,index){
   return {id:id(), token:id(24), name:cleanName(b.name),
     avatar: avatars.includes(b.avatar) ? b.avatar : pick(avatars),
@@ -163,6 +165,7 @@ async function action(req,res,url){const b=await readJson(req); const a=url.path
     if(room.endsAt&&Date.now()>=room.endsAt){reveal(room,'time');error(409,"Time's up!");}
     const word=cleanWord(b.word);
     if(!checkModifier(word,room.modifier))error(400,`That breaks the rule: ${room.modifier.label}.`);
+    if(usedWords(room,p).has(normalize(word)))error(400,'Someone already said that this round. Try a new word.');
     p.submission={word,at:Date.now()};
     if(room.players.every(q=>q.submission))reveal(room,'all');else emit(room);
   }else if(a==='reveal'){

@@ -84,11 +84,32 @@ test('only the host moves on while connected; anyone can when the host is offlin
   await words([a,b],['red','blue']);
   await next(b);
   await until(a,x=>x.phase==='writing'&&x.attempt===2);
-  await words([a,b],['red','blue']);
+  await words([a,b],['green','yellow']);
   const stop=await listen(a);
   try{assert.equal((await raw('next',b)).status,403);await next(a);}finally{await stop();}
   await until(a,x=>x.phase==='writing'&&x.attempt===3);
   assert.equal((await raw('next',a)).status,409);
+});
+
+test('words already revealed this round cannot be said again',async()=>{
+  const [a,b]=await addPlayers(2);await post('settings',{...a,rounds:0,timer:0});await post('start',a);
+  await words([a,b],['Ocean','pizza']);await next(a);
+  await until(a,x=>x.phase==='writing'&&x.attempt===2);
+  for(const word of ['ocean','PIZZA']){const r=await raw('submit',{...a,word});assert.equal(r.status,400);assert.match(r.data.error,/already said that this round/);}
+  assert.equal((await state(a)).selfSubmitted,false);
+  await words([a,b],['beach','beach']);await next(a);
+  await until(a,x=>x.phase==='writing'&&x.round===2);
+  await words([a,b],['ocean','ocean']);
+  assert.equal((await state(a)).latestOutcome.matched,true);
+});
+
+test("in battle, only your own team's earlier words are blocked",async()=>{
+  const players=await addPlayers(4);const [h]=players;
+  await post('mode',{...h,mode:'battle'});await post('settings',{...h,rounds:0,timer:0});await post('start',h);
+  await words(players,['apple','grape','lemon','melon']);await next(h);
+  await until(h,x=>x.phase==='writing'&&x.attempt===2);
+  assert.equal((await raw('submit',{...players[0],word:'lemon'})).status,400);
+  await post('submit',{...players[0],word:'grape'});
 });
 
 test('players can move around the lobby, and only there',async()=>{
