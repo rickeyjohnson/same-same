@@ -36,7 +36,8 @@ export function enter(r){
     big.className = 'big teams';
     big.innerHTML = `<div class="tr"><b>${s.battleScores?.red ?? 0}</b><span>Red</span></div><div class="tb"><b>${s.battleScores?.blue ?? 0}</b><span>Blue</span></div>`;
   } else {
-    title.textContent = s.rounds ? 'SAME SAME!' : 'Good game';
+    if(s.rounds){ title.innerHTML = '<span>SAME</span><span>SAME</span>'; title.classList.add('stack'); }
+    else title.textContent = 'Good game';
     big.className = 'big';
     big.innerHTML = '<b id="endScore">0</b><span>points together</span>';
     countUp($('#endScore'), s.score || 0);

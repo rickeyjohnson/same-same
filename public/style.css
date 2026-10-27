@@ -178,9 +178,14 @@ div.set{box-shadow:none;border-color:transparent;background:rgba(27,37,70,.7)}
 .spot .sn{color:var(--muted);font-size:16px;font-weight:600;margin-top:6px}
 .spot .sw{font-size:min(54px,calc(var(--R)*.25px));font-weight:800;line-height:1.05;overflow-wrap:anywhere}
 .spot.ok .sw{color:var(--grass)}.spot.bad .sw{color:var(--tomato)}
-.spot .ss{font-size:17px;font-weight:700;color:var(--sun)}
+.spot .ss{font-size:17px;font-weight:700;color:var(--sun);min-height:1.3em}
+.spot.wait .sw{color:#fff}
+.punch{animation:punch .35s cubic-bezier(.3,1.6,.5,1)}
+@keyframes punch{40%{transform:scale(1.12)}}
 .spot.bad .ss{color:var(--tomato)}
-.bang{font-size:min(64px,calc(var(--R)*.23px));line-height:1;color:var(--sun);-webkit-text-stroke:8px var(--k);paint-order:stroke fill;text-shadow:0 6px 0 var(--k);transform:rotate(-4deg);animation:bang .6s cubic-bezier(.3,1.7,.5,1) both;white-space:nowrap}
+.bang{display:flex;flex-direction:column;align-items:center;font-size:min(108px,calc(var(--R)*.46px));line-height:.86;padding-top:.08em;color:var(--sun);-webkit-text-stroke:.1em var(--k);paint-order:stroke fill;text-shadow:0 .07em 0 var(--k);animation:bang .6s cubic-bezier(.3,1.7,.5,1) both;white-space:nowrap}
+.bang span:first-child,.end-title.stack span:first-child{rotate:-3deg;translate:-.1em 0}
+.bang span:last-child,.end-title.stack span:last-child{rotate:2deg;translate:.1em 0}
 @keyframes bang{from{opacity:0;transform:scale(.2) rotate(-16deg)}}
 .won{font-size:min(30px,calc(var(--R)*.14px));font-weight:800;color:var(--grass);overflow-wrap:anywhere}
 .sub{color:var(--muted);font-size:16px;font-weight:600}
@@ -205,6 +210,7 @@ div.set{box-shadow:none;border-color:transparent;background:rgba(27,37,70,.7)}
 .end-in{width:100%;max-width:520px;margin:auto 0;display:flex;flex-direction:column;align-items:center;gap:18px;text-align:center}
 .end-title{margin:0;font-size:clamp(44px,12vw,76px);line-height:1;color:var(--sun);-webkit-text-stroke:9px var(--k);paint-order:stroke fill;text-shadow:0 7px 0 var(--k);transform:rotate(-3deg);animation:bang .7s cubic-bezier(.3,1.7,.5,1) both}
 .end-title.red{color:var(--red)}.end-title.blue{color:var(--blue)}
+.end-title.stack{display:flex;flex-direction:column;align-items:center;font-size:clamp(66px,21vw,128px);line-height:.86;padding-top:.08em;-webkit-text-stroke:.1em var(--k);text-shadow:0 .07em 0 var(--k);transform:none}
 .big b{display:block;font-family:var(--display);font-weight:400;font-size:88px;line-height:1;text-shadow:0 6px 0 var(--k)}
 .big span{color:var(--muted);font-size:17px;font-weight:600}
 .big.teams{display:flex;gap:28px;justify-content:center}
@@ -248,5 +254,17 @@ div.set{box-shadow:none;border-color:transparent;background:rgba(27,37,70,.7)}
 #toast{position:fixed;top:76px;left:50%;transform:translate(-50%,-10px);max-width:calc(100% - 32px);background:#fff;color:var(--k);font-weight:700;padding:8px 16px;border-radius:12px;border:3px solid var(--k);box-shadow:0 3px 0 var(--k);opacity:0;transition:opacity .2s,transform .2s;z-index:60;pointer-events:none;text-align:center}
 #toast.on{opacity:1;transform:translate(-50%,0)}
 
+/* laptops and desktops: the lobby becomes a framed board with the controls in one row */
+@media (min-width:900px){
+  #lobby .bar{padding-left:max(14px,calc(50% - 500px));padding-right:max(14px,calc(50% - 500px))}
+  .hang{left:50%;right:auto;width:min(1000px,calc(100% - 64px));translate:-50% 0;top:76px;bottom:178px;border-radius:32px;background:rgba(255,255,255,.025);box-shadow:inset 0 0 0 3px #1A2550}
+  .sides{inset:10px}
+  .hb .av{--s:78px}
+  .hb .nm{font-size:17px}
+  .foot{display:grid;grid-template-columns:minmax(0,340px) minmax(0,560px);justify-content:center;column-gap:14px;row-gap:12px;bottom:calc(36px + env(safe-area-inset-bottom))}
+  .mode-hint{grid-column:1/-1;grid-row:1}
+  .sets{grid-column:1;grid-row:2;max-width:none}
+  .foot-row{grid-column:2;grid-row:2;max-width:none}
+}
 @media (max-width:420px){.after>.btn{max-width:none}.hud-l{font-size:16px}.score{font-size:22px}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition:none!important}#fx{display:none}}

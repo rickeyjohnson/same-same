@@ -3,7 +3,8 @@ import {api, serverNow} from './net.js';
 import {SFX} from './sfx.js';
 import {burst} from './fx.js';
 
-const STEP = 1150;          // time between reveals
+const STEP = 1500;          // time between reveals
+const SUSPENSE = 500;       // a beat before each word is marked as a match or a break
 const LATE_MS = 8000;       // joined this long after a reveal started: skip straight to the result
 let wired = false, room = null, key = '', seatIds = '', lastAfter = '';
 let timers = [], tick = null, warned = false, resultShown = false, counting = false, busy = false;
@@ -191,19 +192,27 @@ async function submit(e){
 }
 
 /* reveal */
+// Shows the word first, then after a short beat marks it as part of the streak or the break.
 function revealOne(g, k, plan, quiet){
   const ok = plan.streak && norm(g.word) === plan.best;
-  const seat = seatEl(g.id);
-  if(seat){
-    const lab = seat.querySelector('.lab');
-    lab.textContent = g.word ? norm(g.word) : 'no word';
-    lab.className = 'lab pill ' + (ok ? 'ok' : 'bad') + (quiet ? '' : ' pop');
-    if(!quiet) restart(seat, ok ? 'hop' : 'shake');
-  }
-  if(quiet) return;
-  const firstBreak = !ok && plan.order.slice(0, k).every(q => plan.streak && norm(q.word) === plan.best);
-  $('#center').innerHTML = `<div class="spot ${ok ? 'ok pop' : 'bad shake'}">${av(g, g.id === room.me ? 'me' : '')}<div class="sn">${esc(g.name)}</div><div class="sw">${g.word ? esc(norm(g.word)) : '...'}</div><div class="ss">${ok ? `${k + 1} in a row` : g.word ? 'Streak broken' : 'Ran out of time'}</div></div>`;
-  if(ok) SFX.tick(k); else if(firstBreak) SFX.buzz(); else SFX.soft();
+  const seat = seatEl(g.id), lab = seat?.querySelector('.lab');
+  if(lab) lab.textContent = g.word ? norm(g.word) : 'no word';
+  if(quiet){ if(lab) lab.className = 'lab pill ' + (ok ? 'ok' : 'bad'); return; }
+  if(lab) lab.className = 'lab pill pop';
+  $('#center').innerHTML = `<div class="spot wait pop">${av(g, g.id === room.me ? 'me' : '')}<div class="sn">${esc(g.name)}</div><div class="sw">${g.word ? esc(norm(g.word)) : '...'}</div><div class="ss"></div></div>`;
+  SFX.pop();
+  later(() => {
+    if(lab) lab.className = 'lab pill ' + (ok ? 'ok' : 'bad');
+    if(seat) restart(seat, ok ? 'hop' : 'shake');
+    const spot = $('#center .spot');
+    if(spot){
+      spot.className = 'spot ' + (ok ? 'ok' : 'bad');
+      restart(spot, ok ? 'punch' : 'shake');
+      spot.querySelector('.ss').textContent = ok ? `${k + 1} in a row` : g.word ? 'Streak broken' : 'Ran out of time';
+    }
+    const firstBreak = !ok && plan.order.slice(0, k).every(q => plan.streak && norm(q.word) === plan.best);
+    if(ok) SFX.tick(k); else if(firstBreak) SFX.buzz(); else SFX.soft();
+  }, SUSPENSE);
 }
 function startReveal(r){
   $('#timer').hidden = true; $('#tbar').hidden = true;
@@ -247,14 +256,14 @@ function showResult(r, plan, quiet){
   if(isBattle(r)){
     const team = meOf(r)?.team;
     if(o.winner && o.winner === team){
-      c.innerHTML = `<div class="bang shout">SAME SAME!</div><div class="won pop">${esc(norm(o.winningWord))}</div><div class="sub">Your team takes the round</div>`;
+      c.innerHTML = `<div class="bang shout"><span>SAME</span><span>SAME</span></div><div class="won pop">${esc(norm(o.winningWord))}</div><div class="sub">Your team takes the round</div>`;
       celebrate(r, r.players.filter(p => p.team === team), [TEAM[team].hex, '#FFD23F', '#FFFFFF'], quiet);
     } else {
       c.innerHTML = near(plan);
       if(o.winner && !quiet){ callout(`${TEAM[o.winner].name} synced first`, 'bad'); SFX.buzz(); }
     }
   } else if(o.matched){
-    c.innerHTML = `<div class="bang shout">SAME SAME!</div><div class="won pop">${esc(norm(o.winningWord))}</div><div class="pts">+${o.points}</div>`;
+    c.innerHTML = `<div class="bang shout"><span>SAME</span><span>SAME</span></div><div class="won pop">${esc(norm(o.winningWord))}</div><div class="pts">+${o.points}</div>`;
     celebrate(r, r.players, colorsOf(r.players), quiet);
     if(!quiet) countUp(r.scores.group - o.points, r.scores.group);
   } else c.innerHTML = near(plan);
