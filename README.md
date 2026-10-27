@@ -1,5 +1,7 @@
 # SAME SAME
 
+play: [https://same-same-party-game.onrender.com](https://same-same-party-game.onrender.com)
+
 A real-time multiplayer party game where everyone tries to say the same word. Plain **HTML, CSS and JavaScript** with a small Node server that pushes live updates with Server-Sent Events. No frameworks and no third-party packages.
 
 ## Play locally
