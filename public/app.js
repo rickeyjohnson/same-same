@@ -1,81 +1,64 @@
-const $ = selector => document.querySelector(selector);
-const app = $('#app');
-const opts = {classic:{emoji:'🧠',name:'Classic',desc:'One big brain cell. Keep guessing until everyone syncs.'},battle:{emoji:'⚔️',name:'Brain Battle',desc:'Two teams race to get their own matching words.'},chaos:{emoji:'💥',name:'Chaos',desc:'Same game, ridiculous word rules every attempt.'}};
-const avatars=['😎','🦊','🐸','🦋','🐱','👽','🤖','🐼','🦄','🐙','🦖','🪩'];
-const e=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const getSaved=()=>{try{return JSON.parse(localStorage.getItem('same-same-sessions')||'{}')}catch{return {}}};
-const storeSaved=s=>localStorage.setItem('same-same-sessions',JSON.stringify(s));
-const urlRoom=()=>new URL(location.href).searchParams.get('room')?.trim().toUpperCase()||'';
-let session=null, room=null, eventSource=null, screen='home', entryMode='create', busy=false, chosenAvatar='😎';
-let draft={}, lastToast=0, toastTimeout=null;
-const storage=getSaved();
-if(urlRoom()&&storage[urlRoom()]){session=storage[urlRoom()];screen='connecting';}
-else if(urlRoom()){screen='setup';entryMode='join';}
-else if(storage._active&&storage[storage._active]){session=storage[storage._active];screen='connecting';}
-function toast(message){const box=$('#toast');box.textContent=message;box.classList.add('show');clearTimeout(toastTimeout);toastTimeout=setTimeout(()=>box.classList.remove('show'),3500);}
-function setSession(value){ session=value;const saved=getSaved();saved[value.code]=value;saved._active=value.code;storeSaved(saved);history.replaceState(null,'',`/?room=${value.code}`);screen='connecting';connect(); }
-function leave(){if(eventSource)eventSource.close();eventSource=null;if(session){const saved=getSaved();delete saved[session.code];if(saved._active===session.code)delete saved._active;storeSaved(saved);}session=null;room=null;screen='home';history.replaceState(null,'','/');render();}
-async function request(action,body={}){const payload={...session,...body};const response=await fetch(`/api/${action}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const data=await response.json();if(!response.ok)throw new Error(data.error||'Something went wrong.');return data;}
-async function connect(){if(!session)return;screen='connecting';render();if(eventSource)eventSource.close();
-  try{
-    const q=new URLSearchParams({code:session.code,playerId:session.playerId,token:session.token});
-    const res=await fetch('/api/state?'+q);if(!res.ok)throw new Error((await res.json()).error||'Room unavailable.');
-    room=await res.json();screen='game';render();
-    eventSource=new EventSource('/api/events?'+q);
-    eventSource.addEventListener('state',ev=>{room=JSON.parse(ev.data);screen='game';render();});
-    eventSource.onerror=()=>{const el=$('#connection-status');if(el)el.innerHTML='<span style="color:#ffb6c1">● RECONNECTING</span>';};
-  }catch(err){toast(err.message);leave();if(urlRoom()){screen='setup';entryMode='join';render();}}
+import {$, ctl, toast} from './ui/util.js';
+import * as net from './ui/net.js';
+import {unlock, paintMute, toggleMute} from './ui/sfx.js';
+import {openHow, closeSheets, initSheets} from './ui/sheets.js';
+import * as home from './ui/home.js';
+import * as lobby from './ui/lobby.js';
+import * as play from './ui/play.js';
+import * as end from './ui/end.js';
+
+const screens = {home, lobby, play, end};
+let current = null, room = null, lostShown = false;
+
+const screenFor = r => r.phase === 'lobby' ? 'lobby' : r.phase === 'finished' ? 'end' : 'play';
+
+function show(id){
+  if(current && current !== id) screens[current].exit?.();
+  current = id;
+  for(const s of Object.keys(screens)) $('#' + s).hidden = s !== id;
+  document.body.dataset.screen = id;
+  closeSheets();
 }
-function topbar(){return `<header class="topbar"><a class="brand" href="/" data-action="home" aria-label="SAME SAME home"><span class="brand-mark">🧠</span><span>SAME <span>SAME</span></span></a><div class="toplinks"><span id="connection-status"><span class="live-dot"></span>${room?'LIVE ROOM':'PARTY GAME'}</span>${session?`<button class="back-link" data-action="leave">Leave room</button>`:'<span class="pill">NO BRAIN CELLS REQUIRED</span>'}</div></header>`;}
-function wrapper(body){app.innerHTML=`<div class="shell">${topbar()}${body}<div class="bottom-notes">MADE FOR PEOPLE WHO THINK THEY THINK ALIKE ✳</div></div>`;}
-function home(){wrapper(`<main class="landing"><div class="landing-inner"><section class="hero"><span class="eyebrow">THE MULTIPLAYER MIND-MELD GAME</span><h1>SAME<br/><em>SAME.</em></h1><p class="subhead">No clues. No prompts. Just you and your friends trying to think of <strong style="color:#fff">the exact same word.</strong> How hard could that be?</p><div class="hero-buttons"><button class="btn btn-primary" data-action="create-setup">✳ &nbsp; Create a room</button><button class="btn btn-secondary" data-action="join-setup">↗ &nbsp; Join a room</button></div><p class="howto"><span class="mini-icons">🧠🧠🧠</span> 2–8 players &nbsp; · &nbsp; Any device &nbsp; · &nbsp; 3 game modes</p></section><div class="mascot-zone" aria-hidden="true"><div class="orbit"><span class="sparkle s1">✳</span><span class="sparkle s2">✦</span><span class="mascot">🧠</span><span class="tag one">"BANANA" 🍌</span><span class="tag two">"TAXES"?! 💀</span><span class="tag three">SAME SAME!! ✨</span></div></div></div></main><section class="features"><div class="feature"><div class="em">🫠</div><h3>Start with absolutely nothing</h3><p>Everyone types any word. No secret prompt, no hints, just pure chaos.</p></div><div class="feature"><div class="em">💭</div><h3>Make the connection</h3><p>See everyone's guesses. Next attempt, try to choose the exact same word.</p></div><div class="feature"><div class="em">🎉</div><h3>Find your shared brain cell</h3><p>When every player independently matches, the whole room wins.</p></div></section>`);}
-function setup(){const joining=entryMode==='join';const initialCode=(urlRoom()||'');wrapper(`<main class="centered-panel"><span class="eyebrow">${joining?'✳ JOIN THE CHAOS':'✳ LET’S DO THIS'}</span><h1>${joining?'Join the brain trust.':'Start a new room.'}</h1><p>${joining?'Got a code? Enter it below and find out how badly your brains disagree.':'Invite your friends and see if any of you share a single thought.'}</p><form id="entry-form" autocomplete="off"><div class="field"><label for="player-name">Your name</label><input class="text-input" id="player-name" name="name" placeholder="e.g. Sleepy Potato" maxlength="18" required value="${e(localStorage.getItem('same-same-name')||'')}" /></div>${joining?`<div class="field"><label for="room-field">6-character room code</label><input class="text-input" id="room-field" name="code" placeholder="ABC123" maxlength="6" value="${e(initialCode)}" required style="text-transform:uppercase;letter-spacing:4px" /></div>`:''}<div class="field"><label>Pick your vibe</label><div class="avatar-grid">${avatars.map(a=>`<button type="button" class="avatar-choice ${chosenAvatar===a?'chosen':''}" aria-label="Choose avatar ${a}" data-avatar="${a}">${a}</button>`).join('')}</div></div><button class="btn btn-primary" type="submit" ${busy?'disabled':''}>${joining?'Join room →':'Create room →'}</button></form><p style="text-align:center;margin-top:24px"><button class="back-link" data-action="${joining?'create-setup':'join-setup'}">${joining?'Want to host instead? Create a room':'Have a code? Join a room'}</button></p></main>`);}
-function lobby(){const me=room.players.find(p=>p.id===room.me);const host=room.me===room.hostId;const n=room.players.length;const canStart=n>=(room.mode==='battle'?4:2)&& (room.mode!=='battle'||['red','blue'].every(t=>room.players.filter(p=>p.team===t).length>=2));
-  wrapper(`<main class="game-layout"><div class="lobby-left"><div class="stage-hero"><div class="eyebrow">✳ THE PARTY STARTS HERE</div><h1>Welcome to the<br/><span style="color:var(--lime)">brain trust.</span></h1><p>Gather the gang, pick a mode, and prepare to think exactly like everybody else. Spoiler: you won't.</p></div><section class="card"><div class="lobby-code-box"><div><div class="small-caption">YOUR ROOM CODE</div><div class="room-code">${e(room.code)}</div></div><button class="btn btn-secondary btn-small" data-action="copy-link">🔗 Copy invite link</button></div><p class="lobby-info">Send the link to your friends. They can join from <strong>any device</strong>. No accounts needed.</p></section><section class="card"><div class="panel-heading"><h2>Choose your chaos</h2><span class="pill">3 MODES</span></div><div class="mode-grid">${Object.entries(opts).map(([key,v])=>`<button data-mode="${key}" class="mode-card ${room.mode===key?'selected':''}" ${!host?'disabled':''}><span class="mode-emoji">${v.emoji}</span><span class="mode-title">${v.name}</span><span class="mode-desc">${v.desc}</span></button>`).join('')}</div>${room.mode==='battle'?'<p class="lobby-info">⚔️ Brain Battle requires at least 4 players and 2 per team. Players choose their team on the right.</p>':'<p class="lobby-info">🧩 No prompts, ever. The first word comes entirely from you.</p>'}${host?`<button class="btn btn-primary" data-action="start" style="width:100%;margin-top:10px" ${canStart?'':'disabled'}>🚀 Start ${e(opts[room.mode].name)} ${canStart?'→':`(need ${room.mode==='battle'?'2 per team':'2+ players'})`}</button>`:`<div class="status-box">⏳ Waiting for the host to start the game...</div>`}</section></div><aside class="side"><section class="card"><div class="panel-heading"><h2>In the room</h2><span class="pill">${n}/8</span></div>${playerList('lobby')}<p class="form-note" style="margin-top:14px">${n===1?'Just you for now. Invite someone!':'Looking good! More brains, more chaos.'}</p></section><section class="card"><div class="panel-heading"><h2>How to play</h2></div><ol class="rule-list"><li>Everybody secretly types any random word.</li><li>All words are revealed together.</li><li>Using those words, try to think of the <strong>same next word</strong>.</li><li>Keep going until everyone matches!</li></ol><p class="help-text">Don't discuss your answers until the round is over. You can reuse previously revealed words.</p></section></aside></main>`);
+
+// Every live update lands here. Screens only re-render what changed.
+function onState(next){
+  lostShown = false;
+  net.syncClock(next.now);
+  const prev = room; room = next;
+  const s = screenFor(next);
+  if(s !== current){ show(s); screens[s].enter(next, prev); }
+  else screens[s].update(prev, next);
 }
-function playerList(place){return `<div class="player-list">${room.players.map(p=>{const mine=p.id===room.me;const waiting=room.phase==='writing';return `<div class="player-line ${!p.connected?'dim':''}"><span class="player-face">${p.avatar}</span><div style="min-width:0"><div class="player-name">${e(p.name)} ${mine?'<span style="color:var(--lime)">(you)</span>':''}</div><div class="player-sub">${p.isHost?'👑 Host':place==='lobby'?'Ready to vibe':p.connected?'Online':'Disconnected'}${room.mode==='battle'?` · ${p.team==='red'?'🔴':'🔵'} ${p.team}`:''}</div></div>${place==='lobby'&&room.mode==='battle'?`<div class="team-switch"><button class="team-btn red ${p.team==='red'?'active':''}" ${mine?'':'disabled'} data-team="red">R</button><button class="team-btn blue ${p.team==='blue'?'active':''}" ${mine?'':'disabled'} data-team="blue">B</button></div>`:place==='lobby'?'':`<span class="player-flag" title="${p.submitted?'Locked in':'Thinking'}">${waiting?(p.submitted?'✅':'···'):(p.connected?'●':'◌')}</span>`}${place!=='lobby'&&!p.connected&&room.me===room.hostId?`<button class="danger-link" title="Remove disconnected player" data-remove="${p.id}">Remove</button>`:''}</div>`}).join('')}</div>`;}
-function historyPanel(){const hist=[...room.history].reverse();return `<section class="card"><div class="panel-heading"><h2>Word journey</h2><span class="pill">${room.history.length} ${room.history.length===1?'REVEAL':'REVEALS'}</span></div>${!hist.length?'<p class="help-text">Your group’s shared thoughts will appear here after each reveal.</p>':`<div class="history-list">${hist.map(h=>`<div class="history-step"><h3>ATTEMPT ${h.attempt} ${h.matched?'· ✅ SYNCED':''}</h3>${h.modifier?`<div style="font-size:11px;color:var(--orange);margin-bottom:8px">💥 ${e(h.modifier.label)}</div>`:''}<div class="history-tags">${h.guesses.map(g=>`<span class="word-tag ${h.matched?'green':''}" title="${e(g.name)}">${e(g.word||'—')}</span>`).join('')}</div></div>`).join('')}</div>`}${room.mode==='battle'?'<p class="help-text" style="margin-top:14px">You only see your team’s word history until the game ends.</p>':''}</section>`;}
-function game(){const me=room.players.find(p=>p.id===room.me),isBattle=room.mode==='battle',isRevealing=room.phase==='reveal',isFinished=room.phase==='finished'; const title=isFinished?'THE FINAL VIBE CHECK':room.mode==='classic'?'ONE BRAIN CELL':room.mode==='chaos'?'CHAOS IN SESSION':'BRAIN VS BRAIN';
-  wrapper(`<main class="game-layout"><div class="stage"><section class="stage-hero"><div class="stage-top"><span class="pill lime">${opts[room.mode].emoji} ${e(opts[room.mode].name.toUpperCase())}</span>${!isFinished?`<span class="pill">ROUND ${room.round}/5 · ATTEMPT ${room.attempt}</span>`:''}</div><h1>${title}<span style="color:var(--lime)">.</span></h1><p>${isFinished?'Five rounds of questionable decisions. Here’s how it went.':isBattle?`You're on ${me.team==='red'?'🔴 RED':'🔵 BLUE'} team. Get your teammates to type exactly the same word before the other team does.`:room.attempt===1?'No starting prompt. Think of literally any word. Everybody has to make one up independently.':'Look at the last revealed words. What ONE word do you think everyone else will choose?'}</p>${room.phase==='writing'?`<div style="display:flex;align-items:center;justify-content:space-between;margin-top:21px"><span class="small-caption">TIME TO LOCK IN</span><span class="big-timer" id="timer">00:20</span></div><div class="timebar"><div class="timebar-fill" id="time-fill"></div></div>`:room.phase==='reveal'?`<div style="display:flex;justify-content:space-between;align-items:center;margin-top:20px"><span class="small-caption">NEXT ${room.latestOutcome?.matched?'ROUND':'ATTEMPT'} IN</span><span class="big-timer" id="timer">0:06</span></div><div class="timebar"><div class="timebar-fill" id="time-fill"></div></div>`:''}</section>
-  ${isFinished?finishedCenter():isRevealing?revealCenter():writingCenter()}
-  ${!isFinished&&room.phase==='writing'&&room.attempt>1?`<section class="card"><div class="panel-heading"><h2>💭 What you know so far</h2><span class="pill">LAST REVEAL</span></div><div class="history-tags">${(room.history.at(-1)?.guesses||[]).map(g=>`<span class="word-tag" style="font-size:14px;padding:10px 13px">${e(g.word||'—')}</span>`).join('')}</div><p class="help-text" style="margin:12px 0 0">Find the shared connection. There is no right answer—only the answer everyone chooses.</p></section>`:''}
-  </div><aside class="side"><section class="card"><div class="panel-heading"><h2>Your people</h2><span class="pill">${room.players.length}/8</span></div>${playerList('game')}<div class="meta-stat" style="margin-top:14px"><span>Locked in</span><strong class="waiting-count">${room.players.filter(p=>p.submitted).length}/${room.players.length}</strong></div></section>${isBattle?`<section class="card"><div class="panel-heading"><h2>Battle scoreboard</h2></div><div class="team-counts"><div class="team-score red">🔴 RED<strong>${room.battleScores.red}</strong></div><div class="team-score blue">🔵 BLUE<strong>${room.battleScores.blue}</strong></div></div><p class="help-text">First to 3 round wins takes the crown.</p></section>`:`<section class="card"><div class="panel-heading"><h2>Group score</h2></div><div style="font-family:'Space Grotesk';font-size:50px;font-weight:800;color:var(--lime)">${room.scores.group}</div><p class="help-text">Points for syncing in fewer attempts. 5 rounds total.</p></section>`}${historyPanel()}</aside></main>`);
-  tick();
+function lost(){ if(!lostShown && room){ lostShown = true; toast('Reconnecting...'); } }
+
+async function join(info){
+  net.remember(info);
+  try { await net.connect(onState, lost); }
+  catch(e){ goHome(e.message, info.code); }
 }
-function writingCenter(){const submitted=room.selfSubmitted;return `<section class="card entry-zone">${room.modifier?`<div class="rule-box"><div class="small-caption">💥 CHAOS RULE</div><h3>${e(room.modifier.label)}</h3><p>${e(room.modifier.detail)}</p></div>`:''}${submitted?`<div class="lock-state"><div class="lock-emoji">🔒</div><div class="section-kicker">YOUR ANSWER IS LOCKED</div><h2>${e(room.myWord).toUpperCase()}</h2><p>Shhh! ${room.players.filter(p=>p.submitted).length} of ${room.players.length} players have locked in. Wait for the reveal.</p><div class="status-box">🔐 Everyone's guesses stay hidden until the reveal.</div></div>`:`<span class="section-kicker">✳ ${room.attempt===1?'THE FIRST THOUGHT':'FIND THE CONNECTION'}</span><h2>${room.attempt===1?'Anything. Literally anything.':'What’s the same next word?'}</h2><p class="lead">${room.attempt===1?'Type the first random word that pops into your head. No prompts. No peeking.':`Use your group's previous guesses to predict what they’ll all type next. No talking!`}</p><form id="word-form" autocomplete="off"><div class="entry-flex"><input class="text-input" id="word-input" name="word" placeholder="YOUR ONE WORD..." maxlength="24" pattern="[^ ]+" aria-label="Your one-word guess" autocapitalize="off" spellcheck="false" required value="${e(draft[`${room.code}-${room.round}-${room.attempt}`]||'')}"/><button class="btn btn-primary" type="submit" ${busy?'disabled':''}>LOCK IT IN ↗</button></div></form><p class="form-note">1–20 letters. Hyphens okay. Repeats are allowed. You can't change an answer after locking it in.</p>`}</section>`;}
-function revealCenter(){const o=room.latestOutcome;const last=room.history.at(-1);if(!last)return '';const end=o?.matched;return `<section class="card entry-zone"><div class="result-hero"><span class="result-emoji">${end?'🎉':'🫠'}</span><span class="section-kicker">${end?'THE BRAINS HAVE CONNECTED':'NOT SAME SAME... YET'}</span><h2>${end?(room.mode==='battle'?`${(o.winner||'').toUpperCase()} TEAM WINS!`:'SAME SAME!!'):'THE PLOT THICKENS.'}</h2>${end?`<div class="winner-word">${e(o.winningWord||'').toUpperCase()}</div>`:''}<p>${end?(room.mode==='battle'?`A full team sync on attempt ${room.attempt}. Round won!`:`Every single person typed the same word! ${o.points} points earned.`):'Different brains, different vibes. Study the guesses and try to converge next attempt.'}</p></div><div class="reveal-grid">${last.guesses.map(g=>`<div class="guess-card ${end?'match':''}"><div class="who">${g.avatar} ${e(g.name)} ${room.mode==='battle'?`· ${g.team==='red'?'🔴':'🔵'}`:''}</div><div class="word ${g.word?'':'ghost'}">${e(g.word||'NO ANSWER')}</div></div>`).join('')}</div><div class="status-box" style="text-align:center">${end?room.round===5||room.mode==='battle'&&(room.battleScores.red===3||room.battleScores.blue===3)?'🏁 Final results coming up...':'✨ New round starting automatically...':'🔁 New attempt starting automatically...'}</div></section>`;}
-function finishedCenter(){const s=room.summary||{}, battle=room.mode==='battle';return `<section class="card entry-zone"><div class="result-hero"><span class="result-emoji">🏆</span><span class="section-kicker">GAME OVER — THANKS FOR THINKING</span><h2>${battle?`${room.winner==='red'?'RED':'BLUE'} TEAM WINS!`:'THE HIVE MIND LIVES!'}</h2><p>${battle?'The battle of the brains is over. Bragging rights unlocked.':'Your group has officially shared at least one brain cell. Five times.'}</p></div>${battle?`<div class="team-counts"><div class="team-score red">🔴 RED<strong>${room.battleScores.red}</strong></div><div class="team-score blue">🔵 BLUE<strong>${room.battleScores.blue}</strong></div></div>`:`<div class="team-counts"><div class="team-score">GROUP POINTS<strong style="color:var(--lime)">${s.score||0}</strong></div><div class="team-score">TOTAL ATTEMPTS<strong>${s.totalAttempts||0}</strong></div></div><div class="status-box" style="text-align:center">⚡ Best sync: ${s.best||'—'} ${s.best===1?'attempt':'attempts'}</div>`}${room.me===room.hostId?`<button class="btn btn-primary" style="width:100%;margin-top:22px" data-action="restart">PLAY AGAIN ↗</button>`:'<div class="status-box" style="text-align:center">Waiting for host to start a new game...</div>'}<button class="btn btn-secondary" data-action="copy-link" style="width:100%;margin-top:10px">🔗 INVITE MORE BRAINS</button></section>`;}
-function tick(){if(!room||!room.endsAt)return;const el=$('#timer'),bar=$('#time-fill');if(!el)return;let sec=Math.max(0,Math.ceil((room.endsAt-Date.now())/1000));el.textContent=`0:${String(sec).padStart(2,'0')}`;el.classList.toggle('urgent',sec<=5);if(bar){const duration=room.phase==='writing'?(room.mode==='chaos'&&room.modifier?.id==='speed'?8000:20000):6500;bar.style.width=(Math.max(0,Math.min(100,((room.endsAt-Date.now())/duration)*100)))+'%';}}
-function render(){if(screen==='home')return home();if(screen==='setup')return setup();if(screen==='connecting')return wrapper('<div class="centered-panel" style="text-align:center"><span class="spinner"></span><h1>Connecting your brain...</h1><p>Locating the shared brain cell.</p></div>');if(!room)return home();if(room.phase==='lobby')lobby();else game();}
-const inputKey=()=>room?`${room.code}-${room.round}-${room.attempt}`:'';
-app.addEventListener('input',ev=>{if(ev.target.id==='word-input')draft[inputKey()]=ev.target.value;});
-app.addEventListener('click',async ev=>{const avatar=ev.target.closest('[data-avatar]');if(avatar){chosenAvatar=avatar.dataset.avatar;document.querySelectorAll('[data-avatar]').forEach(b=>b.classList.toggle('chosen',b===avatar));return;}
-const mode=ev.target.closest('[data-mode]');const team=ev.target.closest('[data-team]');const removed=ev.target.closest('[data-remove]');const button=ev.target.closest('[data-action]');
-try{
-  if(mode){await request('mode',{mode:mode.dataset.mode});return;}
-  if(team){await request('team',{team:team.dataset.team});return;}
-  if(removed){if(confirm('Remove this disconnected player from the room?'))await request('remove',{targetId:removed.dataset.remove});return;}
-  if(!button)return;const a=button.dataset.action;
-  if(a==='home'){ev.preventDefault();leave();}
-  else if(a==='leave'){if(confirm('Leave this room? You can rejoin from your saved invite link only while still in the room.'))leave();}
-  else if(a==='create-setup'){entryMode='create';screen='setup';render();}
-  else if(a==='join-setup'){entryMode='join';screen='setup';render();}
-  else if(a==='start')await request('start');
-  else if(a==='restart')await request('restart');
-  else if(a==='copy-link'){const url=`${location.origin}/?room=${room.code}`;try{await navigator.clipboard.writeText(url);toast('Invite link copied! 🔗');}catch{prompt('Copy your invite link:',url);}}
-}catch(err){toast(err.message);}
+function goHome(error, code){
+  net.disconnect(); net.forget(); room = null;
+  show('home'); home.enter(null, {error, code});
+}
+async function leave(){
+  net.disconnect();
+  try { await net.api('leave'); } catch {}
+  goHome();
+}
+Object.assign(ctl, {room:() => room, join, goHome, leave});
+
+document.addEventListener('click', e => {
+  if(e.target.closest('.mute')) toggleMute();
+  else if(e.target.closest('.how-open')) openHow();
 });
-app.addEventListener('submit',async ev=>{
-  if(ev.target.id==='entry-form'){
-    ev.preventDefault();if(busy)return;busy=true;const form=new FormData(ev.target);const name=String(form.get('name')||'');localStorage.setItem('same-same-name',name.trim());
-    try{const joining=entryMode==='join';const code=String(form.get('code')||'').trim().toUpperCase();
-      const result=await request(joining?'join':'create',{name,code,avatar:chosenAvatar});setSession(result);
-    }catch(err){toast(err.message);}finally{busy=false;}
-  }else if(ev.target.id==='word-form'){
-    ev.preventDefault();if(busy)return;const field=ev.target.querySelector('[name=word]');const word=field.value;draft[inputKey()]=word;busy=true;
-    try{await request('submit',{word});}catch(err){toast(err.message);}finally{busy=false;}
-  }
-});
-setInterval(tick,150);
-render();
-if(session)connect();
+document.addEventListener('pointerdown', unlock);
+document.addEventListener('keydown', unlock);
+initSheets();
+paintMute();
+
+// Rejoin a saved room, open the join box for an invite link, or show the home screen.
+const code = new URL(location.href).searchParams.get('room')?.trim().toUpperCase() || '';
+const saved = code ? net.savedFor(code) : net.activeSession();
+show('home');
+home.enter(null, saved || !code ? {} : {code});
+if(saved) join(saved);

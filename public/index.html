@@ -1,21 +1,129 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#171529" />
-  <meta name="description" content="SAME SAME — the multiplayer party game where everybody tries to think of the same word. No prompts. Just vibes." />
-  <title>SAME SAME — Share One Brain Cell</title>
-  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/style.css" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#121A30">
+  <meta name="description" content="SAME SAME is the party game where everyone tries to say the same word.">
+  <title>SAME SAME</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
 </head>
-<body>
-  <div class="page-noise" aria-hidden="true"></div>
-  <div id="app"></div>
-  <div id="toast" class="toast" role="alert" aria-live="assertive"></div>
-  <script type="module" src="/app.js"></script>
+<body data-screen="home">
+
+<section id="home" class="screen">
+  <div class="home-col"><div class="home-in">
+    <h1 class="logo shout" aria-label="Same Same"><span class="l1">SAME</span><span class="l2">SAME</span></h1>
+    <div class="demo" aria-hidden="true"><div class="demo-stage" id="demoStage"></div><p class="demo-cap" id="demoCap"></p></div>
+    <div class="look">
+      <button type="button" class="me-big" id="mePreview" aria-label="Shuffle your look"></button>
+      <input class="field" id="name" maxlength="18" placeholder="Your name" autocomplete="off" aria-label="Your name">
+    </div>
+    <div class="emojis" id="emojiGrid" role="radiogroup" aria-label="Pick your emoji"></div>
+    <div class="colors" id="colorRow" role="radiogroup" aria-label="Pick your color"></div>
+    <button type="button" class="btn" id="create">Create room</button>
+    <div class="row2" id="row2">
+      <button type="button" class="btn ghost" id="joinOpen">Join with code</button>
+    </div>
+    <div class="join" id="joinRow" hidden>
+      <input class="field" id="codeIn" maxlength="6" placeholder="Room code" autocomplete="off" autocapitalize="characters" aria-label="Room code">
+      <button type="button" class="btn ghost" id="join">Join</button>
+      <button type="button" class="icon" id="joinX" aria-label="Cancel">&times;</button>
+    </div>
+    <p class="err" id="homeErr" role="alert"></p>
+    <button type="button" class="linkbtn how-open">How to play</button>
+  </div></div>
+</section>
+
+<section id="lobby" class="screen" hidden>
+  <header class="bar">
+    <button type="button" class="code-chip" id="codeChip" aria-label="Copy invite link"><b id="codeTxt"></b><span class="cp">Copy</span></button>
+    <div class="right">
+      <span class="count" id="count"></span>
+      <button type="button" class="icon how-open" aria-label="How to play">?</button>
+      <button type="button" class="icon mute" aria-label="Mute"></button>
+      <button type="button" class="icon" id="lobbyLeave" aria-label="Leave room">&times;</button>
+    </div>
+  </header>
+  <div class="hang" id="hang">
+    <div class="sides" id="sides" hidden>
+      <div class="side red"><b>Red</b><span>tap a side to join</span></div>
+      <div class="side blue"><b>Blue</b><span>tap a side to join</span></div>
+    </div>
+  </div>
+  <footer class="foot">
+    <div class="sets" id="sets"></div>
+    <p class="mode-hint" id="modeHint"></p>
+    <div class="foot-row" id="footRow"></div>
+  </footer>
+</section>
+
+<section id="play" class="screen" hidden>
+  <div class="tbar" id="tbar" hidden></div>
+  <header class="bar">
+    <div class="hud-l"><span id="roundTxt"></span><span class="try" id="tryTxt"></span></div>
+    <div class="timer" id="timer" hidden></div>
+    <div class="right">
+      <span class="score" id="scoreBox"></span>
+      <button type="button" class="icon how-open" aria-label="How to play">?</button>
+      <button type="button" class="icon mute" aria-label="Mute"></button>
+    </div>
+  </header>
+  <div class="rule" id="rule" hidden></div>
+  <div class="arena" id="arena">
+    <div class="table" id="table"></div>
+    <div id="seats"></div>
+    <div class="center" id="center" aria-live="polite"></div>
+  </div>
+  <div class="dock">
+    <form id="wordForm" autocomplete="off">
+      <input class="field" id="word" maxlength="20" placeholder="Type a word" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Your word">
+      <button type="submit" class="btn">Lock in</button>
+    </form>
+    <p class="err" id="wordErr" role="alert"></p>
+    <div class="after" id="after" hidden></div>
+  </div>
+</section>
+
+<section id="end" class="screen" hidden>
+  <div class="end-col"><div class="end-in">
+    <h1 class="end-title shout" id="endTitle">SAME SAME!</h1>
+    <div class="big" id="endBig"></div>
+    <div class="stats">
+      <div><b id="stRounds">0</b><span>rounds synced</span></div>
+      <div><b id="stTries">0</b><span>total tries</span></div>
+      <div><b id="stBest">-</b><span>fastest sync</span></div>
+    </div>
+    <div class="trail" id="trail"></div>
+    <div class="crew" id="crew"></div>
+    <div class="end-btns" id="endBtns"></div>
+  </div></div>
+</section>
+
+<div class="sheet" id="how" hidden role="dialog" aria-modal="true" aria-labelledby="howT">
+  <div class="sheet-in">
+    <div class="sheet-head"><h2 id="howT">How to play</h2><button type="button" class="icon sheet-x" aria-label="Close">&times;</button></div>
+    <ol class="steps">
+      <li><b>Everyone types a word</b><span>All at the same time. The host can add a timer of up to 1 minute.</span></li>
+      <li><b>Words reveal one by one</b><span>Not all the same? Those words are your clues. Try again and meet in the middle.</span></li>
+      <li><b>Match to score</b><span>When everyone says the same word, the round is yours. Fewer tries, more points.</span></li>
+    </ol>
+    <div class="minfo">
+      <div><b>Classic</b><span>Just sync up</span></div>
+      <div><b>Chaos</b><span>A letter rule after try 1</span></div>
+      <div><b>Battle</b><span>Two teams race to 3</span></div>
+    </div>
+    <p class="sheet-note">Rounds keep going until the host ends the game, unless they set a number in the lobby.</p>
+    <button type="button" class="btn sheet-x">Got it</button>
+    <button type="button" class="linkbtn danger" id="sheetLeave" hidden>Leave room</button>
+  </div>
+</div>
+
+<div id="fx" aria-hidden="true"></div>
+<div id="toast" role="status"></div>
+<script type="module" src="/app.js"></script>
 </body>
 </html>
