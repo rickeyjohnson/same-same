@@ -3,8 +3,8 @@ import {api, serverNow} from './net.js';
 import {SFX} from './sfx.js';
 import {burst} from './fx.js';
 
-const STEP = 1500;          // time between reveals
-const SUSPENSE = 500;       // a beat before each word is marked as a match or a break
+const STEP = 2000;          // time between reveals
+const SUSPENSE = 1000;      // a beat before each word is marked as a match or a break
 const LATE_MS = 8000;       // joined this long after a reveal started: skip straight to the result
 let wired = false, room = null, key = '', seatIds = '', lastAfter = '';
 let timers = [], tick = null, warned = false, resultShown = false, counting = false, busy = false;
