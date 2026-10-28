@@ -204,7 +204,8 @@ function sendFile(res,url){let pathname=decodeURIComponent(url.pathname);if(path
 const server=http.createServer(async(req,res)=>{
   try{
     const url=new URL(req.url,'http://localhost');
-    if(req.method==='GET'&&url.pathname==='/api/health')return safeJson(res,200,{ok:true,rooms:rooms.size});
+    // The loading page on GitHub Pages polls this from another site while Render wakes the server up.
+    if(req.method==='GET'&&url.pathname==='/api/health'){res.setHeader('access-control-allow-origin','*');return safeJson(res,200,{ok:true,rooms:rooms.size});}
     if(req.method==='GET'&&url.pathname==='/api/state'){
       const room=getRoom(url.searchParams.get('code')); const p=playerAuth(room,Object.fromEntries(url.searchParams));return safeJson(res,200,view(room,p));
     }

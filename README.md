@@ -26,6 +26,12 @@ Or choose **New > Blueprint** and pick the repository; it uses `render.yaml`. Re
 
 > This game needs a long-running Node server for live multiplayer. Uploading only the HTML, CSS and JS files to a static host (like Netlify Drop) will not work. Use Render, Railway, Fly.io or another Node host.
 
+## Loading page while the server wakes up
+
+Free Render servers go to sleep after 15 minutes without players, and the first visit after that shows Render's own loading page for about a minute. `docs/index.html` is a SAME SAME loading page that replaces it. It's hosted on GitHub Pages, which never sleeps. It wakes the server, shows the players bouncing while it waits, then sends everyone into the game. Room invite links pass straight through.
+
+To turn it on, go to the GitHub repo's **Settings > Pages**, set **Source** to **Deploy from a branch**, pick **main** and **/docs**, then save. A minute later it's live at `https://<your-github-username>.github.io/same-same/`. Share that link instead of the Render one. If the game moves to a different Render address, update `GAME` near the bottom of `docs/index.html`.
+
 ## How to play
 
 - **2 to 8 players** join a room with a 6-character code. No talking.
@@ -64,6 +70,7 @@ Or choose **New > Blueprint** and pick the repository; it uses `render.yaml`. Re
 - `public/ui/net.js`: API calls, Server-Sent Events and server clock sync
 - `public/ui/sfx.js`, `public/ui/fx.js`: sounds and confetti
 - `public/ui/util.js`: shared helpers, emoji and color lists
+- `docs/index.html`: loading page for GitHub Pages that wakes the server
 - `render.yaml`: Render deployment config
 - `tests/game.test.js`: multiplayer tests against a real server
 

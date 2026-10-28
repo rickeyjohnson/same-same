@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#121A30">
+  <meta name="description" content="SAME SAME is the party game where everyone tries to say the same word.">
+  <title>SAME SAME</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%235BC8F5'/%3E%3Ctext x='32' y='47' text-anchor='middle' font-size='42'%3E%F0%9F%A7%A0%3C/text%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Rubik:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root{--ink:#121A30;--ink-2:#1B2546;--k:#0A1022;--muted:#9AA6C9;--sky:#5BC8F5;--sun:#FFD23F;--grass:#7ED957;
+      --emoji:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;color-scheme:dark}
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;display:flex;align-items:center;justify-content:center;padding:24px 16px;color:#fff;font-family:Rubik,system-ui,sans-serif;
+      background:var(--ink) radial-gradient(circle,rgba(255,255,255,.09) 1.4px,transparent 1.9px) 0 0/24px 24px}
+    main{width:100%;max-width:420px;display:flex;flex-direction:column;align-items:center;gap:22px;text-align:center}
+    .logo{margin:0;font-family:"Luckiest Guy",Rubik,sans-serif;font-weight:400;letter-spacing:.03em;font-size:clamp(62px,18vw,104px);line-height:.86;padding-top:.08em}
+    .logo span{display:block;text-shadow:0 .07em 0 var(--k)}
+    .logo span:first-child{color:var(--sky);rotate:-3deg;translate:-.12em 0}
+    .logo span:last-child{color:var(--sun);rotate:2deg;translate:.12em 0}
+    .crew{display:flex;gap:18px;padding:14px 0 6px}
+    .av{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;font-size:28px;line-height:1;font-family:var(--emoji);
+      background:var(--c);border:3px solid var(--k);box-shadow:0 4px 0 var(--k);animation:hop 1.2s cubic-bezier(.3,1.6,.5,1) infinite}
+    .av:nth-child(2){animation-delay:.15s}.av:nth-child(3){animation-delay:.3s}
+    @keyframes hop{0%,55%,100%{transform:translateY(0)}25%{transform:translateY(-16px)}}
+    h1.status{margin:0;font-size:22px;font-weight:800}
+    .dots::after{content:"";animation:dots 1.4s steps(4) infinite}
+    @keyframes dots{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}
+    p{margin:0;color:var(--muted);font-size:16px;line-height:1.45}
+    .bar{width:100%;height:14px;border-radius:99px;background:var(--ink-2);border:3px solid var(--k);overflow:hidden}
+    .bar i{display:block;height:100%;width:4%;background:var(--sun);border-radius:99px;transition:width .6s ease}
+    .ready .bar i{background:var(--grass)}
+    .btn{display:inline-block;border:3px solid var(--k);border-radius:14px;padding:11px 22px;font-weight:800;font-size:18px;background:var(--sun);color:var(--k);box-shadow:0 4px 0 var(--k);text-decoration:none}
+    [hidden]{display:none!important}
+    @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+  </style>
+</head>
+<body>
+  <main id="box">
+    <div class="logo" aria-hidden="true"><span>SAME</span><span>SAME</span></div>
+    <div class="crew" aria-hidden="true">
+      <div class="av" style="--c:#FF9F43">🦊</div>
+      <div class="av" style="--c:#7ED957">🐸</div>
+      <div class="av" style="--c:#FF7EB6">🐙</div>
+    </div>
+    <h1 class="status" id="status" role="status"><span id="statusText">Waking up the game</span><span class="dots" id="dots"></span></h1>
+    <div class="bar" aria-hidden="true"><i id="fill"></i></div>
+    <p id="note">The free server naps when nobody's playing. Waking it takes about a minute.</p>
+    <a class="btn" id="open" href="https://same-same-party-game.onrender.com/" hidden>Open the game</a>
+    <noscript><a class="btn" href="https://same-same-party-game.onrender.com/">Open the game</a></noscript>
+  </main>
+  <script>
+    // The game lives on Render. This page stays on GitHub Pages, which never sleeps,
+    // so players see it instead of Render's loading page while the server wakes up.
+    const GAME = 'https://same-same-party-game.onrender.com';
+    const local = new URLSearchParams(location.search).get('server');
+    const server = local && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(local) ? local : GAME;
+    const params = new URLSearchParams(location.search); params.delete('server');
+    const target = server + '/' + (params.toString() ? '?' + params : '') + location.hash;
+    const $ = id => document.getElementById(id);
+    $('open').href = target;
+    const started = Date.now();
+    let done = false;
+
+    // Fake progress that slows down as it goes, so the bar never looks stuck.
+    const progress = setInterval(() => {
+      const t = (Date.now() - started) / 1000;
+      $('fill').style.width = Math.min(92, 4 + 88 * (1 - Math.exp(-t / 28))) + '%';
+      if(t > 150 && !done){ $('statusText').textContent = 'Taking longer than usual'; $('dots').hidden = true; $('note').textContent = 'You can keep waiting here, or try opening the game yourself.'; $('open').hidden = false; }
+    }, 400);
+
+    async function check(){
+      if(done) return;
+      try {
+        const r = await fetch(server + '/api/health', {cache:'no-store'});
+        if(r.ok){ return ready(); }
+      } catch {}
+      setTimeout(check, 2500);
+    }
+    function ready(){
+      done = true; clearInterval(progress);
+      document.body.classList.add('ready');
+      $('fill').style.width = '100%';
+      $('statusText').textContent = 'Ready!'; $('dots').hidden = true;
+      $('note').textContent = 'Taking you to the game.';
+      setTimeout(() => location.replace(target), Date.now() - started < 1500 ? 0 : 500);
+    }
+    check();
+  </script>
+</body>
+</html>
