@@ -154,10 +154,9 @@ function startWriting(r){
   const last = r.attempt > 1 ? r.history.at(-1) : null, c = $('#center');
   if(!last) c.innerHTML = `<div class="prompt pop">Say any word</div><div class="locked" id="lockedN">${lockedLine(r)}</div>`;
   else {
-    const latest = new Set(last.guesses.map(g => norm(g.word)).filter(Boolean));
-    const older = [...usedWords(r)].filter(w => !latest.has(w));
-    const pills = [...[...latest].map(w => [w, '']), ...older.map(w => [w, 'old'])];
-    c.innerHTML = `<div class="cap">Meet in the middle with a new word</div><div class="clues">${pills.map(([w, cls], i) => `<span class="pill ${cls}" style="animation-delay:${i * 70}ms">${esc(w)}</span>`).join('')}</div><div class="locked" id="lockedN">${lockedLine(r)}</div>`;
+    // Only the last try's words are clues. Older words stay blocked but aren't shown.
+    const words = [...new Set(last.guesses.map(g => norm(g.word)).filter(Boolean))];
+    c.innerHTML = `<div class="cap">Meet in the middle with a new word</div><div class="clues">${words.map((w, i) => `<span class="pill" style="animation-delay:${i * 70}ms">${esc(w)}</span>`).join('')}</div><div class="locked" id="lockedN">${lockedLine(r)}</div>`;
   }
   $('#wordErr').textContent = '';
   if(r.selfSubmitted) showLocked(r); else showForm();
